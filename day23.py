@@ -75,43 +75,58 @@ b2.grid(row = 11, column = 2)
 root.mainloop()
 
 
-# Watermark Merger App
+#Create two browse button and place the .pdf file for the buttons and create a merge pdf option -  Watermark Merger App
 
-pip install imutils
-from imutils import paths
-import numpy as np
-import argparse
-import cv2
-import os
-ap = argparse.ArgumentParser()
-ap.add_argument("-w", "--watermark", required=True,
-	help="path to watermark image (assumed to be transparent PNG)")
-ap.add_argument("-i", "--input", required=True,
-	help="path to the input directory of images")
-ap.add_argument("-o", "--output", required=True,
-	help="path to the output directory")
-ap.add_argument("-a", "--alpha", type=float, default=0.25,
-	help="alpha transparency of the overlay (smaller is more transparent)")
-ap.add_argument("-c", "--correct", type=int, default=1,
-	help="flag used to handle if bug is displayed or not")
-args = vars(ap.parse_args())
-watermark = cv2.imread(args["watermark"], cv2.IMREAD_UNCHANGED)
-(wH, wW) = watermark.shape[:2]
-if args["correct"] > 0:
-	(B, G, R, A) = cv2.split(watermark)
-	B = cv2.bitwise_and(B, B, mask=A)
-	G = cv2.bitwise_and(G, G, mask=A)
-	R = cv2.bitwise_and(R, R, mask=A)
-	watermark = cv2.merge([B, G, R, A])
-for imagePath in paths.list_images(args["input"]):
-	image = cv2.imread(imagePath)
-	(h, w) = image.shape[:2]
-	image = np.dstack([image, np.ones((h, w), dtype="uint8") * 255])
-	overlay = np.zeros((h, w, 4), dtype="uint8")
-	overlay[h - wH - 10:h - 10, w - wW - 10:w - 10] = watermark
-	output = image.copy()
-	cv2.addWeighted(overlay, args["alpha"], output, 1.0, 0, output)
-	filename = imagePath[imagePath.rfind(os.path.sep) + 1:]
-	p = os.path.sep.join((args["output"], filename))
-	cv2.imwrite(p, output)
-	
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
+from PyPDF2 import PdfFileMerger, PdfFileReader
+from pathlib import Path
+filelist = []
+merger = PdfFileMerger()
+def open_file(files):
+    filepath = askopenfilename(
+        filetypes=[("PDF Files","*.pdf"), ("All Files", "*.*")]
+    )
+    if not(filepath and Path(filepath).exists()):
+        return
+    files.append(filepath)
+    lbl_items["text"] = '\n'.join(str(f) for f in files)
+    if len(files) >= 2 and btn_merge['state'] == "disabled":
+        btn_merge["state"] = "normal"
+def merge_pdfs(files):
+    for f in files:
+        merger.append(PdfFileReader(open(f, "rb")))  
+    output_filename = ent_output_name.get()
+    if not output_filename:
+        output_filename = "Merged.pdf"
+    elif ".pdf" not in output_filename:
+        output_filename += ".pdf"
+    merger.write(output_filename)
+window = tk.Tk()
+window.title("PDF_Merger")
+window.geometry("600x600")
+window.resizable(0,0)
+fr_bg1 = tk.Frame(window, bd=3)
+lbl_open = tk.Label(fr_bg1, text="Choose the PDFs to join: (2 and above)")
+lbl_open.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+btn_open = tk.Button(fr_bg1, text="Open file",bg='white', fg='yellow,font=('algerian', 16, 'bold') ,
+                command=lambda: open_file(filelist))
+btn_open.grid(row=1, column=0, sticky="ew", padx=5)
+lbl_items = tk.Label(fr_bg1, text="")
+lbl_items.grid(row=2, column=0, pady=5)
+fr_bg1.pack()
+fr_bg2 = tk.Frame(window, bd=3)
+lbl_to_merge = tk.Label(fr_bg2, text="Merge selected files (in PDF)")
+lbl_to_merge.grid(row=0, column=0, sticky="ew", padx="5", pady="5")
+ent_output_name = tk.Entry(master=fr_bg2, width=7)
+ent_output_name.grid(row=1, column=0, sticky="ew")
+btn_merge = tk.Button(fr_bg2,bg='white',font=('algerian', 16, 'bold') ,
+                text="Merge PDF",
+                state="disabled",
+                command=lambda: merge_pdfs(filelist))
+btn_merge.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+fr_bg2.pack()
+btn_exit = tk.Button(window, text="Exit", command=window.destroy, bd=2, bg='white', fg='yellow',font=('algerian', 16, 'bold') ,)
+btn_exit.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=tk.FALSE)
+if __name__ == "__main__":
+    window.mainloop()
